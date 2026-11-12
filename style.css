@@ -1,0 +1,22 @@
+:root {
+  --primary-color: #173F35;
+}
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background-color: #f8f9fa;
+}
+.sidebar .nav-link {
+  color: #4a5568;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.sidebar .nav-link:hover, .sidebar .nav-link.active {
+  color: var(--primary-color);
+  background-color: #e6f4ea;
+}
+.card {
+  border-radius: 1rem;
+  border: none;
+}
