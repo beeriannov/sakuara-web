@@ -180,16 +180,33 @@ async function renderTransactions(container) {
   
   let rows = txs.length === 0 ? `<tr><td colspan="5" class="text-center py-4">Belum ada data transaksi.</td></tr>` : 
     txs.map(t => {
-      let date = t.date || t.createdAt || t.tanggal || '-';
-      if (date instanceof Date) date = date.toLocaleDateString('id-ID');
+      // 1. Perbaiki Format Tanggal (Otomatis potong format T...Z jadi DD/MM/YYYY)
+      let rawDate = t.date || t.createdAt || t.tanggal || '-';
+      let dateFormatted = rawDate;
+      if (rawDate && rawDate !== '-') {
+        let d = new Date(rawDate);
+        if (!isNaN(d.getTime())) {
+          const dd = String(d.getDate()).padStart(2, '0');
+          const mm = String(d.getMonth() + 1).padStart(2, '0');
+          const yyyy = d.getFullYear();
+          dateFormatted = `${dd}/${mm}/${yyyy}`;
+        }
+      }
+      
       const cat = t.category || t.categoryName || t.name || t.description || '-';
-      const type = t.type || t.transactionType || '-';
-      const amount = Number(t.amount || t.nominal || 0);
+      const type = String(t.type || t.transactionType || t.jenis || '-');
+      let amount = Number(t.amount || t.nominal || 0);
+      
+      // 2. Perbaiki Warna dan Tanda Minus Berdasarkan Jenis Transaksi
+      if (type.toLowerCase().includes('expense') || type.toLowerCase().includes('pengeluaran') || type.toLowerCase() === 'out') {
+        amount = -Math.abs(amount);
+      }
+      
       const color = amount < 0 ? 'text-danger' : 'text-success';
       
       return `
         <tr>
-          <td>${date}</td>
+          <td>${dateFormatted}</td>
           <td class="fw-bold">${cat}</td>
           <td><span class="badge bg-light text-dark border">${type}</span></td>
           <td class="text-end fw-bold ${color}">${formatRp(amount)}</td>
