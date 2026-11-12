@@ -1,5 +1,5 @@
 const firebaseConfig = {
-  apiKey: "AIzaSyCtBQAlTq4hIk-3_AnzdJFyTIKULRoOlKY",
+  apiKey: "AIzaSyCtBQAlTq4hIk-3_AnzdJFyTIKULRoOlkY",
   authDomain: "sakuara-app.firebaseapp.com",
   projectId: "sakuara-app",
   storageBucket: "sakuara-app.firebasestorage.app",
