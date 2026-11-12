@@ -95,29 +95,51 @@ async function callAPI(action, payload = {}) {
   }
 }
 
-// FORMAT RUPIAH
-const formatRp = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Number(num) || 0);
+const formatRp = (num) => {
+  const isNegative = Number(num) < 0;
+  const formatted = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(Math.abs(num || 0));
+  return isNegative ? `-${formatted}` : formatted;
+};
 
 // 1. DASHBOARD
 async function renderDashboard(container) {
   const res = await callAPI('getDashboardData');
-  const total = res && res.totalBalance ? res.totalBalance : 0;
+  
+  const total = res?.totalBalance ?? 0;
+  const arusKas = res?.arusKas ?? 0;
+  const recentTxs = res?.recentTransactions ?? [];
+
+  const txHtml = recentTxs.map(tx => `
+    <div class="d-flex justify-content-between align-items-center py-3 border-bottom">
+      <div>
+        <h6 class="fw-bold mb-1 text-dark">${tx.name}</h6>
+        <small class="text-muted" style="font-size: 13px;">${tx.date}</small>
+      </div>
+      <span class="fw-bold ${tx.amount < 0 ? 'text-danger' : 'text-success'}">
+        ${formatRp(tx.amount)}
+      </span>
+    </div>
+  `).join('');
+
   container.innerHTML = `
-    <div class="row g-4 fade-in">
-      <div class="col-12 col-md-6">
-        <div class="card p-4 text-white shadow-sm h-100" style="background: linear-gradient(135deg, #173F35, #215A4C);">
-          <span class="opacity-75 small fw-bold">TOTAL SALDO</span>
-          <h2 class="fw-bold mt-2 mb-0">${formatRp(total)}</h2>
-          <span class="badge bg-white text-success mt-3 align-self-start px-3 py-2 rounded-pill fw-bold">Sinkronisasi Sheets Aktif</span>
+    <div class="row g-4 mb-4 fade-in">
+      <div class="col-12 col-md-7">
+        <div class="card p-4 text-white shadow-sm border-0 h-100" style="background-color: #173F35; border-radius: 12px;">
+          <span class="mb-2" style="font-size: 15px;">Total Saldo</span>
+          <h2 class="fw-bold mb-0">${formatRp(total)}</h2>
         </div>
       </div>
-      <div class="col-12 col-md-6">
-        <div class="card p-4 bg-white shadow-sm border h-100 d-flex flex-column justify-content-center">
-          <span class="text-muted small fw-bold">STATUS KEUANGAN</span>
-          <h4 class="fw-bold text-dark mt-2 mb-1">Aman Terkendali</h4>
-          <p class="text-muted small mb-0">Fitur SAKUARA 100% terhubung ke Google Sheets.</p>
+      <div class="col-12 col-md-5">
+        <div class="card p-4 bg-white shadow-sm border-0 h-100" style="border-radius: 12px;">
+          <span class="text-muted mb-2" style="font-size: 15px;">Arus Kas</span>
+          <h3 class="fw-bold mb-0 ${arusKas < 0 ? 'text-danger' : 'text-success'}">${formatRp(arusKas)}</h3>
         </div>
       </div>
+    </div>
+    
+    <h5 class="fw-bold text-dark mb-3 mt-4">Transaksi Terakhir</h5>
+    <div class="card bg-white shadow-sm border-0 px-3 py-1" style="border-radius: 12px;">
+      ${txHtml || '<p class="text-muted text-center py-4 mb-0">Belum ada transaksi</p>'}
     </div>
   `;
 }
@@ -134,7 +156,7 @@ async function renderAccounts(container) {
 
   let html = accs.map(acc => `
     <div class="col-12 col-md-4">
-      <div class="card p-4 bg-white shadow-sm border-0 h-100">
+      <div class="card p-4 bg-white shadow-sm border-0 h-100" style="border-radius: 12px;">
         <div class="d-flex align-items-center justify-content-between mb-3">
           <div class="bg-success-subtle text-success p-3 rounded-circle">
             <i data-lucide="landmark" style="width: 24px; height: 24px;"></i>
@@ -142,7 +164,7 @@ async function renderAccounts(container) {
           <span class="badge bg-light text-secondary border">${acc.accountType || acc.type || 'Akun'}</span>
         </div>
         <h6 class="text-muted small mb-1">${acc.accountName || acc.name || '-'}</h6>
-        <h4 class="fw-bold text-dark mb-0">${formatRp(acc.currentBalance || acc.balance || 0)}</h4>
+        <h4 class="fw-bold text-dark mb-0">${formatRp(acc.currentBalance || acc.openingBalance || acc.balance || 0)}</h4>
       </div>
     </div>
   `).join('');
@@ -158,15 +180,16 @@ async function renderTransactions(container) {
   
   let rows = txs.length === 0 ? `<tr><td colspan="5" class="text-center py-4">Belum ada data transaksi.</td></tr>` : 
     txs.map(t => {
-      const date = t.date || t.createdAt || t.tanggal || '-';
-      const cat = t.category || t.categoryName || '-';
+      let date = t.date || t.createdAt || t.tanggal || '-';
+      if (date instanceof Date) date = date.toLocaleDateString('id-ID');
+      const cat = t.category || t.categoryName || t.name || t.description || '-';
       const type = t.type || t.transactionType || '-';
-      const amount = t.amount || t.nominal || 0;
-      const color = (type.toLowerCase() === 'income' || type.toLowerCase() === 'pemasukan') ? 'text-success' : 'text-danger';
+      const amount = Number(t.amount || t.nominal || 0);
+      const color = amount < 0 ? 'text-danger' : 'text-success';
       
       return `
         <tr>
-          <td>${new Date(date).toLocaleDateString('id-ID') !== 'Invalid Date' ? new Date(date).toLocaleDateString('id-ID') : date}</td>
+          <td>${date}</td>
           <td class="fw-bold">${cat}</td>
           <td><span class="badge bg-light text-dark border">${type}</span></td>
           <td class="text-end fw-bold ${color}">${formatRp(amount)}</td>
@@ -175,7 +198,7 @@ async function renderTransactions(container) {
     }).join('');
 
   container.innerHTML = `
-    <div class="card p-4 bg-white shadow-sm fade-in border-0">
+    <div class="card p-4 bg-white shadow-sm fade-in border-0" style="border-radius: 12px;">
       <div class="table-responsive">
         <table class="table table-hover align-middle mb-0">
           <thead class="table-light">
@@ -218,7 +241,7 @@ async function renderBudget(container) {
     `;
   }).join('');
 
-  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in"><h5 class="fw-bold mb-4">Anggaran Bulanan</h5>${html}</div>`;
+  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in" style="border-radius: 12px;"><h5 class="fw-bold mb-4">Anggaran Bulanan</h5>${html}</div>`;
 }
 
 // 5. TAGIHAN (PLANNED PAYMENTS)
@@ -237,7 +260,7 @@ async function renderBills(container) {
       </div>
     `).join('');
 
-  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in"><h5 class="fw-bold mb-3">Daftar Tagihan</h5>${rows}</div>`;
+  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in" style="border-radius: 12px;"><h5 class="fw-bold mb-3">Daftar Tagihan</h5>${rows}</div>`;
 }
 
 // 6. TARGET TABUNGAN (SAVINGS GOALS)
@@ -253,7 +276,7 @@ async function renderSavings(container) {
       const percent = target > 0 ? ((saved / target) * 100).toFixed(1) : 0;
       
       return `
-        <div class="card bg-light border-0 p-3 mb-3">
+        <div class="card bg-light border-0 p-3 mb-3" style="border-radius: 12px;">
           <h6 class="fw-bold">${name}</h6>
           <div class="progress mb-2" style="height: 12px;">
             <div class="progress-bar bg-success" style="width: ${percent}%">${percent}%</div>
@@ -266,16 +289,16 @@ async function renderSavings(container) {
       `;
     }).join('');
 
-  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in"><h5 class="fw-bold mb-4">Target Finansial</h5>${html}</div>`;
+  container.innerHTML = `<div class="card p-4 bg-white shadow-sm border-0 fade-in" style="border-radius: 12px;"><h5 class="fw-bold mb-4">Target Finansial</h5>${html}</div>`;
 }
 
 function renderPlaceholder(container, title) {
-  container.innerHTML = `<div class="card p-5 text-center bg-white shadow-sm fade-in"><h5 class="fw-bold text-secondary">${title}</h5></div>`;
+  container.innerHTML = `<div class="card p-5 text-center bg-white shadow-sm fade-in" style="border-radius: 12px;"><h5 class="fw-bold text-secondary">${title}</h5></div>`;
 }
 
 function renderSettingsPage(container) {
   container.innerHTML = `
-    <div class="card p-4 bg-white shadow-sm fade-in border-0">
+    <div class="card p-4 bg-white shadow-sm fade-in border-0" style="border-radius: 12px;">
       <h5 class="fw-bold mb-3">Pengaturan Akun</h5>
       <p class="text-muted small">Aplikasi tersinkronisasi penuh dengan Google Sheets.</p>
       <hr>
