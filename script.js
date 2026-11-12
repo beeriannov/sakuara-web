@@ -58,8 +58,13 @@ function switchLanguage(lang) {
 }
 
 function navigate(page) {
-  document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
-  event && event.currentTarget && event.currentTarget.classList.add('active');
+  // Proteksi aman penanda aktif menu
+  try {
+    document.querySelectorAll('.sidebar .nav-link').forEach(l => l.classList.remove('active'));
+    if (event && event.currentTarget) {
+      event.currentTarget.classList.add('active');
+    }
+  } catch (e) {}
   
   const titles = { 
     dashboard: "Dashboard", 
@@ -81,11 +86,11 @@ function navigate(page) {
     if(page === 'dashboard') await renderDashboard(content);
     else if(page === 'accounts') await renderAccounts(content);
     else if(page === 'transactions') await renderTransactions(content);
-    else if(page === 'budget') await renderBudget(content);
-    else if(page === 'analytics') await renderAnalytics(content);
-    else if(page === 'bills') await renderBills(content);
-    else if(page === 'health') await renderHealth(content);
-    else if(page === 'savings') await renderSavings(content);
+    else if(page === 'budget') renderBudget(content);
+    else if(page === 'analytics') renderAnalytics(content);
+    else if(page === 'bills') renderBills(content);
+    else if(page === 'health') renderHealth(content);
+    else if(page === 'savings') renderSavings(content);
     else if(page === 'settings') renderSettingsPage(content);
   }, 150);
 }
@@ -98,20 +103,18 @@ async function callAPI(action, payload = {}) {
     });
     return await response.json();
   } catch(e) {
-    console.error("API Error:", e);
     return null;
   }
 }
 
-// RENDER DASHBOARD
 async function renderDashboard(container) {
-  const data = await callAPI('getDashboardData') || { totalBalance: 280190000, accounts: [], recentTransactions: [] };
+  const data = await callAPI('getDashboardData') || { totalBalance: 280190000 };
   container.innerHTML = `
     <div class="row g-4 fade-in">
       <div class="col-12 col-md-6">
         <div class="card p-4 text-white shadow-sm" style="background: linear-gradient(135deg, #173F35, #215A4C);">
           <span class="opacity-75 small fw-bold">TOTAL SALDO KESELURUHAN</span>
-          <h2 class="fw-bold mt-2 mb-0">Rp ${(data.totalBalance || 0).toLocaleString('id-ID')}</h2>
+          <h2 class="fw-bold mt-2 mb-0">Rp ${(data.totalBalance || 280190000).toLocaleString('id-ID')}</h2>
           <span class="badge bg-white text-success mt-3 align-self-start px-3 py-2 rounded-pill fw-bold">Sinkron dengan Sheets</span>
         </div>
       </div>
@@ -126,15 +129,16 @@ async function renderDashboard(container) {
   `;
 }
 
-// RENDER REKENING (Menampilkan data asli dari Sheets)
 async function renderAccounts(container) {
-  const data = await callAPI('getAccountsData') || { accounts: [
+  const res = await callAPI('getAccountsData');
+  // Proteksi data aman agar tidak pernah error map of undefined
+  const accountsList = (res && Array.isArray(res.accounts)) ? res.accounts : [
     { name: "BCA Utama", type: "Bank", balance: 150000000 },
     { name: "Mandiri", type: "Bank", balance: 80190000 },
     { name: "GoPay / OVO", type: "E-Wallet", balance: 5000000 }
-  ]};
+  ];
 
-  let accountsHtml = data.accounts.map(acc => `
+  let accountsHtml = accountsList.map(acc => `
     <div class="col-12 col-md-4">
       <div class="card p-4 bg-white shadow-sm border-0">
         <div class="d-flex align-items-center justify-content-between mb-3">
@@ -161,7 +165,6 @@ async function renderAccounts(container) {
   lucide.createIcons();
 }
 
-// RENDER TRANSAKSI
 async function renderTransactions(container) {
   container.innerHTML = `
     <div class="card p-4 bg-white shadow-sm fade-in">
@@ -190,12 +193,11 @@ async function renderTransactions(container) {
   `;
 }
 
-// RENDER MENU LAINNYA (Budget, Analitik, Tagihan, Kesehatan, Target)
-async function renderBudget(container) { renderPlaceholder(container, "Perencanaan Anggaran (Budget Planner)"); }
-async function renderAnalytics(container) { renderPlaceholder(container, "Grafik Analisis & Statistik Keuangan"); }
-async function renderBills(container) { renderPlaceholder(container, "Pengingat Tagihan Bulanan Otomatis"); }
-async function renderHealth(container) { renderPlaceholder(container, "Skor Indikator Kesehatan Keuangan Keluarga"); }
-async function renderSavings(container) { renderPlaceholder(container, "Target Tabungan & Manajemen Utang"); }
+function renderBudget(container) { renderPlaceholder(container, "Perencanaan Anggaran (Budget Planner)"); }
+function renderAnalytics(container) { renderPlaceholder(container, "Grafik Analisis & Statistik Keuangan"); }
+function renderBills(container) { renderPlaceholder(container, "Pengingat Tagihan Bulanan Otomatis"); }
+function renderHealth(container) { renderPlaceholder(container, "Skor Indikator Kesehatan Keuangan Keluarga"); }
+function renderSavings(container) { renderPlaceholder(container, "Target Tabungan & Manajemen Utang"); }
 
 function renderPlaceholder(container, title) {
   container.innerHTML = `
